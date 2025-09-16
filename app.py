@@ -18,7 +18,7 @@ def dec(x):
         return Decimal("0")
 
 def fmt_money(d: Decimal) -> str:
-    # прикажи без децимали ако е цел број, инаку со 2
+    # убаво прикажување без .00 кога е цел број
     if d == d.to_integral_value():
         return f"{int(d)} ден."
     return f"{d:.2f} ден."
@@ -33,20 +33,21 @@ def fetch_customers(q: str = ""):
     return res.data if res.data else []
 
 def insert_customer(name, phone, note, initial_debt):
-    # ВАЖНО: праќаме float кон Supabase (не Decimal)
     return sb.table("customers").insert({
-        "name": name,
-        "phone": phone,
-        "note": note,
-        "initial_debt": float(initial_debt)
+        "name": (name or "").strip(),
+        "phone": (phone or "").strip(),
+        "note": (note or "").strip(),
+        # ВАЖНО: праќаме float, не Decimal
+        "initial_debt": float(initial_debt) if initial_debt is not None else 0.0
     }).execute()
 
 def update_customer(cid, name, phone, note, initial_debt):
     return sb.table("customers").update({
-        "name": name,
-        "phone": phone,
-        "note": note,
-        "initial_debt": float(initial_debt)
+        "name": (name or "").strip(),
+        "phone": (phone or "").strip(),
+        "note": (note or "").strip(),
+        # ВАЖНО: праќаме float, не Decimal
+        "initial_debt": float(initial_debt) if initial_debt is not None else 0.0
     }).eq("id", cid).execute()
 
 def delete_customer(cid):
@@ -58,12 +59,12 @@ def fetch_payments(customer_id):
     return res.data if res.data else []
 
 def add_payment(customer_id, amount, pay_date, note):
-    # ВАЖНО: amount -> float; датум како ISO string
     return sb.table("payments").insert({
         "customer_id": customer_id,
-        "amount": float(amount),
+        # ВАЖНО: праќаме float, не Decimal
+        "amount": float(amount) if amount is not None else 0.0,
         "pay_date": str(pay_date),
-        "note": note
+        "note": (note or "").strip()
     }).execute()
 
 # --- UI ---
@@ -101,20 +102,20 @@ elif menu == "Додај муштерија":
     note = st.text_area("Белешка")
     debt = st.number_input("Почетен долг", min_value=0.0, step=100.0)
     if st.button("✅ Додади"):
-        if not name.strip():
-            st.warning("Внеси име и презиме.")
+        if not (name or "").strip():
+            st.error("Внеси име и презиме.")
         else:
-            insert_customer(name.strip(), phone.strip(), note.strip(), dec(debt))
+            insert_customer(name, phone, note, dec(debt))
             st.success("✅ Муштеријата е додадена!")
 
 # --- Детален приказ ---
 if "view_customer" in st.session_state:
     cid = st.session_state["view_customer"]
-    cust_res = sb.table("customers").select("*").eq("id", cid).execute().data
-    if not cust_res:
-        st.warning("Муштеријата не постои (можеби е избришана).")
+    rec = sb.table("customers").select("*").eq("id", cid).execute().data
+    if not rec:
+        st.warning("Муштеријата не постои.")
     else:
-        cust = cust_res[0]
+        cust = rec[0]
         st.header(f"📌 Детали: {cust['name']}")
 
         # Основни податоци
@@ -122,25 +123,23 @@ if "view_customer" in st.session_state:
             new_name = st.text_input("Име и презиме", value=cust["name"])
             new_phone = st.text_input("Телефон", value=cust.get("phone") or "")
             new_note = st.text_area("Белешка", value=cust.get("note") or "")
-            new_debt = st.number_input("Почетен долг", value=float(cust.get("initial_debt") or 0))
+            new_debt = st.number_input("Почетен долг", value=float(cust.get("initial_debt") or 0), step=100.0)
             c1, c2 = st.columns(2)
-            with c1:
-                if st.button("💾 Зачувај промени"):
-                    update_customer(cid, new_name.strip(), new_phone.strip(), new_note.strip(), dec(new_debt))
-                    st.success("✅ Промените се зачувани!")
-            with c2:
-                if st.button("🗑️ Избриши муштерија"):
-                    delete_customer(cid)
-                    st.session_state.pop("view_customer")
-                    st.warning("❌ Муштеријата е избришана!")
+            if c1.button("💾 Зачувај промени"):
+                update_customer(cid, new_name, new_phone, new_note, dec(new_debt))
+                st.success("✅ Промените се зачувани!")
+            if c2.button("🗑️ Избриши муштерија"):
+                delete_customer(cid)
+                st.session_state.pop("view_customer")
+                st.warning("❌ Муштеријата е избришана!")
 
         # Уплати / нов долг
         st.subheader("💵 Уплати / Нов долг")
         pay_date = st.date_input("Датум", value=date.today())
         amount = st.number_input("Износ (уплата=+, нов долг=-)", step=100.0, format="%.2f")
-        note_txt = st.text_input("Белешка (опц.)")
+        note_pay = st.text_input("Белешка (опц.)")
         if st.button("➕ Додај ставка"):
-            add_payment(cid, dec(amount), pay_date, note_txt.strip())
+            add_payment(cid, dec(amount), pay_date, note_pay)
             st.success("✅ Ставката е додадена!")
 
         # Историја
