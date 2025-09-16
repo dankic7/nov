@@ -8,7 +8,7 @@ URL = st.secrets["SUPABASE_URL"]
 KEY = st.secrets["SUPABASE_ANON_KEY"]
 sb = create_client(URL, KEY)
 
-st.set_page_config(page_title="Менаџер за муштерии ", layout="wide")
+st.set_page_config(page_title="Менаџер за муштерии и долгови", layout="wide")
 
 # --- Helpers ---
 def dec(x):
