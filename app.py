@@ -8,7 +8,7 @@ URL = st.secrets["SUPABASE_URL"]
 KEY = st.secrets["SUPABASE_ANON_KEY"]
 sb = create_client(URL, KEY)
 
-st.set_page_config(page_title="Менаџер за муштерии и долгови", layout="wide")
+st.set_page_config(page_title="Менаџер за муштерии ", layout="wide")
 
 # --- Helpers ---
 def dec(x):
@@ -138,3 +138,4 @@ if "view_customer" in st.session_state:
             st.write(f"{p['pay_date']} | {fmt_money(dec(p['amount']))} | {p.get('note') or ''}")
     else:
         st.info("Нема уплати/долгови за овој клиент.")
+
